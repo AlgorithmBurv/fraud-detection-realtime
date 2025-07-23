@@ -1,0 +1,23 @@
+# ========== GOOGLE CREDENTIAL ==========
+*.json
+!schema.txt  # tetap track file schema jika diperlukan
+
+# ========== AIRFLOW ==========
+Airflow/logs/
+Airflow/dags/*.json
+
+# ========== STREAMING ==========
+Stream/mlruns/
+Stream/Dataset/*.csv
+
+# ========== NOTEBOOK ==========
+.ipynb_checkpoints/
+
+# ========== PYTHON CACHE ==========
+__pycache__/
+*.py[cod]
+*.pyo
+
+# ========== SYSTEM FILES ==========
+.DS_Store
+Thumbs.db

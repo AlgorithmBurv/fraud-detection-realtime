@@ -1,0 +1,116 @@
+services:
+  # Zookeeper service
+  zookeeper:
+    container_name: zookeeper-fraud
+    image: wurstmeister/zookeeper:latest
+    networks:
+      - fraud-detection
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  # Kafka service
+  kafka:
+    container_name: kafka-fraud
+    image: confluentinc/cp-kafka:5.5.0
+    networks:
+      - fraud-detection
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      CLUSTER_ID: "kafka-cluster-id"
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+
+  # PostgreSQL service (for both MLflow and Fraud detection)
+  postgres:
+    container_name: postgres-db
+    image: postgres:13
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345678
+      POSTGRES_DB: fraud
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  # MinIO service for artifact storage
+  minio:
+    container_name: minio
+    image: minio/minio:latest
+    environment:
+      MINIO_ROOT_USER: minioadmin # Ganti dengan root user
+      MINIO_ROOT_PASSWORD: minioadmin # Ganti dengan root password
+    ports:
+      - "9000:9000" # API MinIO
+      - "9001:9001" # Console MinIO
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    restart: always
+
+  # Spark master service
+  spark-master:
+    container_name: spark-master
+    image: bitnami/spark:latest
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=spark-master
+    ports:
+      - "7077:7077"
+      - "8080:8080"
+    networks:
+      - fraud-detection
+
+  # Spark worker service
+  spark-worker:
+    container_name: spark-worker
+    image: bitnami/spark:latest
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER=spark://spark-master:7077
+    networks:
+      - fraud-detection
+    depends_on:
+      - spark-master
+
+  # MLflow service for experiment tracking
+  mlflow:
+    container_name: mlflow
+    image: ghcr.io/mlflow/mlflow:v2.0.1
+    command: mlflow server --host 0.0.0.0 --port 5000
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - MLFLOW_SQLALCHEMY_TRACKING_URI=postgresql://postgres:12345678@postgres-db:5432/fraud
+    ports:
+      - "5001:5000" # MLflow tracking UI port
+    networks:
+      - fraud-detection
+    volumes:
+      - ./mlruns:/mlruns
+    depends_on:
+      - postgres
+      - minio
+
+# Networks definition
+networks:
+  fraud-detection:
+    driver: bridge
+
+# Volumes definition for persistent data
+volumes:
+  minio_data:
+    driver: local
+  postgres_data:
+    driver: local
+  mlflow-artifacts:
+    driver: local

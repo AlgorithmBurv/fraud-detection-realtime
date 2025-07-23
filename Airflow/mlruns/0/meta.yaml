@@ -1,0 +1,6 @@
+artifact_location: file:///opt/airflow/mlruns/0
+creation_time: 1750493804902
+experiment_id: '0'
+last_update_time: 1750493804902
+lifecycle_stage: active
+name: FraudDetectionExperiment
